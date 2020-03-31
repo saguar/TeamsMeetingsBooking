@@ -21,7 +21,7 @@ using TeamsMeetingBookFunc;
 
 namespace TeamsMeetingBookingFunction
 {
-    public static class Function1
+    public static class GenerateMeetingFunction
     {
         #region config keys
         private const string TenantIdCfg = "TenantID";
