@@ -5,4 +5,8 @@ Please visit the Wiki pages for all the information about the solution, its conf
 
 This sample project does not contain Telemetry informations and no personal information is being collected
 
-Credits for original version to Antoine Goueslard and Akos Szego
+Main project contributors:
+* Antoine Goueslard
+* Akos Szego
+* Fulvio Mercoliano
+* Saverio Guardato
