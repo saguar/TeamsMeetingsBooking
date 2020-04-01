@@ -12,63 +12,50 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
-using Microsoft.Identity.Client;
-using Newtonsoft.Json;
-using Microsoft.Graph.Auth;
-using System.Web.Http;
-using System.Net;
-using TeamsMeetingBookFunc;
+using TeamsMeetingBookFunc.Models;
+using TeamsMeetingBookFunc.Services;
+using TeamsMeetingBookFunc.Helpers;
 
 namespace TeamsMeetingBookingFunction
 {
     public static class GenerateMeetingFunction
     {
-        #region config keys
-        private const string TenantIdCfg = "TenantID";
-        private const string ClientIdCfg = "ClientID";
-        private const string UserPasswordCfg = "UserPassword";
-        private const string UserEmailCfg = "UserEmail";
-        private const string DefaultMeetingNameCfg = "DefaultMeetingName";
-        #endregion
-
         [FunctionName("GenerateMeetingFunction")]
         public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req,
+            [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]
+            RequestModel requestModel,
+            // HttpRequest is still passed on but currently not used
+            HttpRequest _,
             ILogger log, ExecutionContext context)
         {
             var config = BuildConfig(context);
 
-            string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-            dynamic data = JsonConvert.DeserializeObject(requestBody);
-            DateTime startDate = data?.startDateTime ?? DateTime.Now;
-            DateTime endDate = data?.endDateTime ?? DateTime.Now.AddHours(12);
-
-            string meetingName = data?.subject ?? config.GetConnectionStringOrSetting(DefaultMeetingNameCfg);
+            // use defaults if required
+            requestModel.StartDateTime ??= DateTime.Now;
+            requestModel.EndDateTime ??= DateTime.Now.AddHours(1);
+            requestModel.Subject ??= config.GetConnectionStringOrSetting(ConfigConstants.DefaultMeetingNameCfg);
 
             try
             {
-                var authProvider = GetAuthenticationProvider(config);
+                var service = new BookingService(config);
 
-                var graphServiceClient = new GraphServiceClient(authProvider);
+                var onlineMeeting = await service.CreateTeamsMeetingAsync(requestModel).ConfigureAwait(false);
 
-                var onlineMeeting = new OnlineMeeting
+                var newEvent = await service.CreateCalendarEventAsync(requestModel, onlineMeeting.JoinWebUrl).ConfigureAwait(false);
+
+                var result = new
                 {
-                    StartDateTime = startDate,
-                    EndDateTime = endDate,
-                    Subject = meetingName
+                    meetingUrl = onlineMeeting.JoinWebUrl,
+                    eventId = newEvent.Id,
+                    meetingId = onlineMeeting.Id
                 };
 
-                var meeting = await graphServiceClient.Me.OnlineMeetings.Request()
-                    .AddAuthenticationToRequest(config.GetConnectionStringOrSetting(UserEmailCfg), config.GetConnectionStringOrSetting(UserPasswordCfg))
-                    .WithMaxRetry(5)
-                    .AddAsync(onlineMeeting);
-
-                return new OkObjectResult(meeting.JoinWebUrl);
+                return new OkObjectResult(result);
             }
-            catch(ServiceException e)
+            catch (ServiceException e)
             {
-                log.LogError(e.ToString());
-                return new ObjectResult($"Can't perform request now - {e.Message}") { StatusCode = 500 };
+                log.LogError($"Error:\n{e}");
+                return new ObjectResult($"\"Can't perform request now - {e.Message}\"") { StatusCode = 500 };
             }
         }
 
@@ -80,17 +67,6 @@ namespace TeamsMeetingBookingFunction
                 .AddEnvironmentVariables()
                 .Build();
             return config;
-        }
-
-        private static UsernamePasswordProvider GetAuthenticationProvider(IConfigurationRoot config)
-        {
-            string authority = $"https://login.microsoftonline.com/{config.GetConnectionStringOrSetting(TenantIdCfg)}";
-
-            var app = PublicClientApplicationBuilder.Create(config.GetConnectionStringOrSetting(ClientIdCfg))
-                .WithAuthority(authority)
-                .Build();
-
-            return new UsernamePasswordProvider(app);
         }
     }
 }
