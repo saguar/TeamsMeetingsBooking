@@ -31,7 +31,7 @@ namespace TeamsMeetingBookingFunction
         private const string DefaultMeetingNameCfg = "DefaultMeetingName";
         #endregion
 
-        [FunctionName("Function1")]
+        [FunctionName("GenerateMeetingFunction")]
         public static async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req,
             ILogger log, ExecutionContext context)
