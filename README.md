@@ -1,5 +1,5 @@
 # TeamsMeetingsBooking
-This project contains sample code for implementing An Azure function to create teams meetings programmatically. 
+This project contains sample code for implementing an Azure function to create teams meetings programmatically. 
 
 Please visit the Wiki pages for all the information about the solution, its configuration and implementation.
 
