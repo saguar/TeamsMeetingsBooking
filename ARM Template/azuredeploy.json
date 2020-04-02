@@ -97,7 +97,8 @@
                 "TenantID": "[subscription().tenantId]",
                 "ClientID": "[parameters('appId')]",
                 "UserEmail": "[parameters('user_upn')]",
-                "UserPassword": "[concat('@Microsoft.KeyVault(SecretUri=',reference(concat('Microsoft.KeyVault/vaults/',parameters('keyvault_name'),'/secrets/',variables('userpassword_secret_name'))).secretUriWithVersion,')')]"
+                "UserPassword": "[concat('@Microsoft.KeyVault(SecretUri=',reference(concat('Microsoft.KeyVault/vaults/',parameters('keyvault_name'),'/secrets/',variables('userpassword_secret_name'))).secretUriWithVersion,')')]",
+                "DefaultMeetingName":"Default Meeting Name"
             }
         },
         {
