@@ -20,14 +20,16 @@ namespace TeamsMeetingBookingFunction
         public static async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]
             RequestModel requestModel,
-            HttpRequest req,
-            ILogger log, ExecutionContext context)
+            ILogger log)
         {
-            // to fix : if you put startdate please check that enddate is > startdate
             requestModel.StartDateTime ??= DateTime.Now;
-            requestModel.EndDateTime ??= DateTime.Now.AddHours(1);
+            requestModel.EndDateTime ??= requestModel.StartDateTime.Value.AddHours(1);
             requestModel.Subject ??= BookingService.Current.Configuration.GetConnectionStringOrSetting(ConfigConstants.DefaultMeetingNameCfg);
 
+            if(requestModel.EndDateTime.Value < requestModel.StartDateTime.Value)
+            {
+                return new BadRequestErrorMessageResult($"{nameof(requestModel.EndDateTime)} must be after {nameof(requestModel.StartDateTime)}");
+            }
             try
             {
 
