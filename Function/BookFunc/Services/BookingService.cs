@@ -7,11 +7,15 @@ using Microsoft.Graph.Auth;
 using TeamsMeetingBookFunc.Models;
 using TeamsMeetingBookFunc.Helpers;
 using Microsoft.Azure.WebJobs;
+using System.IO;
+using System.Reflection;
 
 namespace TeamsMeetingBookFunc.Services
 {
     class BookingService
     {
+        private static readonly string binDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+        private static readonly string rootDirectory = Path.GetFullPath(Path.Combine(binDirectory, ".."));
         internal IConfigurationRoot Configuration { get; private set; }
 
         internal GraphServiceClient GraphServiceClient { get; private set; }
@@ -23,13 +27,7 @@ namespace TeamsMeetingBookFunc.Services
 
         private BookingService()
         {
-
-        }
-        #endregion
-
-        internal void Init(ExecutionContext context){
-
-           Configuration = BuildConfig(context);
+            Configuration = BuildConfig();
 
             Uri authority = new Uri($"https://login.microsoftonline.com/{Configuration.GetConnectionStringOrSetting(ConfigConstants.TenantIdCfg)}");
 
@@ -39,11 +37,12 @@ namespace TeamsMeetingBookFunc.Services
 
             GraphServiceClient = new GraphServiceClient(new UsernamePasswordProvider(app));
         }
+        #endregion
 
-        private IConfigurationRoot BuildConfig(ExecutionContext context)
+        private IConfigurationRoot BuildConfig()
         {
             var config = new ConfigurationBuilder()
-                .SetBasePath(context.FunctionAppDirectory)
+                .SetBasePath(rootDirectory)
                 .AddJsonFile("local.settings.json", optional: true, reloadOnChange: true)
                 .AddEnvironmentVariables()
                 .Build();

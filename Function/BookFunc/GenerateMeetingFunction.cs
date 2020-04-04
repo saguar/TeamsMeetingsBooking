@@ -22,9 +22,6 @@ namespace TeamsMeetingBookingFunction
             HttpRequest req,
             ILogger log, ExecutionContext context)
         {
-        
-            BookingService.Current.Init(context);
-
             // use defaults if required
             requestModel.StartDateTime ??= DateTime.Now;
             requestModel.EndDateTime ??= DateTime.Now.AddHours(1);
