@@ -19,7 +19,8 @@ namespace TeamsMeetingBookFunc.Services
         internal IConfigurationRoot Configuration { get; private set; }
 
         internal GraphServiceClient GraphServiceClient { get; private set; }
-
+private static readonly string binDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+        private static readonly string rootDirectory = Path.GetFullPath(Path.Combine(binDirectory, ".."));
         #region Lazy and thread-safe singleton
         private static readonly Lazy<BookingService> _current = new Lazy<BookingService>(() => new BookingService());
 
