@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace TeamsMeetingBookFunc.Helpers
+﻿namespace TeamsMeetingBookFunc.Helpers
 {
     internal class ConfigConstants
     {
-        //If you change those values, please update the ARM template
+
         // When changing values here, please update the ARM template
         internal const string TenantIdCfg = "TenantID";
         internal const string ClientIdCfg = "ClientID";

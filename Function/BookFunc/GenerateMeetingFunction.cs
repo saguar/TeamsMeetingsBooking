@@ -10,6 +10,7 @@ using Microsoft.Graph;
 using TeamsMeetingBookFunc.Models;
 using TeamsMeetingBookFunc.Services;
 using TeamsMeetingBookFunc.Helpers;
+using System.Web.Http;
 
 namespace TeamsMeetingBookingFunction
 {
@@ -22,7 +23,7 @@ namespace TeamsMeetingBookingFunction
             HttpRequest req,
             ILogger log, ExecutionContext context)
         {
-            // use defaults if required
+            // to fix : if you put startdate please check that enddate is > startdate
             requestModel.StartDateTime ??= DateTime.Now;
             requestModel.EndDateTime ??= DateTime.Now.AddHours(1);
             requestModel.Subject ??= BookingService.Current.Configuration.GetConnectionStringOrSetting(ConfigConstants.DefaultMeetingNameCfg);
@@ -44,7 +45,7 @@ namespace TeamsMeetingBookingFunction
             catch (ServiceException e)
             {
                 log.LogError($"Error:\n{e}");
-                return new ObjectResult($"\"Can't perform request now - {e.Message}\"") { StatusCode = 500 };
+                return new BadRequestErrorMessageResult($"\"Can't perform request now - {e.Message}\"");
             }
         }
 
