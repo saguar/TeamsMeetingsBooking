@@ -14,7 +14,6 @@ namespace TeamsMeetingBookFunc.Helpers
         internal static T AddAuthenticationToRequest<T>(this T request, string username, string password) where T : IBaseRequest
         {
             var securePassword = new SecureString();
-            // you should fetch the password from Azure Keyvault
             foreach (char c in password)
                 securePassword.AppendChar(c);  // keystroke by keystroke
 
