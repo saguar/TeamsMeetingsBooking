@@ -25,6 +25,7 @@ namespace TeamsMeetingBookingFunction
 			//You can't specify only EndDateTime
 			if (requestModel.EndDateTime != null && requestModel.StartDateTime == null)
 			{
+				log.LogError("Only EndDateTime has been passed in input. Returning BadRequest");
 				return new BadRequestErrorMessageResult($"If you specify {nameof(requestModel.EndDateTime)}, you must specify {nameof(requestModel.StartDateTime)} as well");
 			}
 
@@ -34,12 +35,17 @@ namespace TeamsMeetingBookingFunction
 
 			if (requestModel.EndDateTime.Value < requestModel.StartDateTime.Value)
 			{
+				log.LogError($"{nameof(requestModel.EndDateTime)} must be after {nameof(requestModel.StartDateTime)}. Returning BadRequest");
 				return new BadRequestErrorMessageResult($"{nameof(requestModel.EndDateTime)} must be after {nameof(requestModel.StartDateTime)}");
 			}
 			try
 			{
-
+				log.LogInformation("Creating a meeting with following info: StartDateTime = {startDateTime}, EndDateTime = {endDateTime}, Subject = {subject}",
+					requestModel.StartDateTime, requestModel.EndDateTime, requestModel.Subject);
+				
 				var onlineMeeting = await BookingService.Current.CreateTeamsMeetingAsync(requestModel).ConfigureAwait(false);
+				
+				log.LogInformation("Meeting created. MeetingUrl = {meetingUrl}, MeetingId = {meetingId}", onlineMeeting.JoinWebUrl, onlineMeeting.Id);
 
 				var result = new
 				{
