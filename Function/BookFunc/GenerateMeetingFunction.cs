@@ -14,43 +14,49 @@ using System.Web.Http;
 
 namespace TeamsMeetingBookingFunction
 {
-    public static class GenerateMeetingFunction
-    {
-        [FunctionName("GenerateMeetingFunction")]
-        public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]
-            RequestModel requestModel,
-            ILogger log)
-        {
-            requestModel.StartDateTime ??= DateTime.Now;
-            requestModel.EndDateTime ??= requestModel.StartDateTime.Value.AddHours(1);
-            requestModel.Subject ??= BookingService.Current.Configuration.GetConnectionStringOrSetting(ConfigConstants.DefaultMeetingNameCfg);
+	public static class GenerateMeetingFunction
+	{
+		[FunctionName("GenerateMeetingFunction")]
+		public static async Task<IActionResult> Run(
+			[HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]
+			RequestModel requestModel,
+			ILogger log)
+		{
+			//You can't specify only EndDateTime
+			if (requestModel.EndDateTime != null && requestModel.StartDateTime == null)
+			{
+				return new BadRequestErrorMessageResult($"If you specify {nameof(requestModel.EndDateTime)}, you must specify {nameof(requestModel.StartDateTime)} as well");
+			}
 
-            if(requestModel.EndDateTime.Value < requestModel.StartDateTime.Value)
-            {
-                return new BadRequestErrorMessageResult($"{nameof(requestModel.EndDateTime)} must be after {nameof(requestModel.StartDateTime)}");
-            }
-            try
-            {
+			requestModel.StartDateTime ??= DateTime.Now;
+			requestModel.EndDateTime ??= requestModel.StartDateTime.Value.AddHours(1);
+			requestModel.Subject ??= BookingService.Current.Configuration.GetConnectionStringOrSetting(ConfigConstants.DefaultMeetingNameCfg);
 
-                var onlineMeeting = await BookingService.Current.CreateTeamsMeetingAsync(requestModel).ConfigureAwait(false);
+			if (requestModel.EndDateTime.Value < requestModel.StartDateTime.Value)
+			{
+				return new BadRequestErrorMessageResult($"{nameof(requestModel.EndDateTime)} must be after {nameof(requestModel.StartDateTime)}");
+			}
+			try
+			{
 
-                var result = new
-                {
-                    meetingUrl = onlineMeeting.JoinWebUrl,
-                    meetingId = onlineMeeting.Id,
-                    meetingName = onlineMeeting.Subject
-                };
+				var onlineMeeting = await BookingService.Current.CreateTeamsMeetingAsync(requestModel).ConfigureAwait(false);
 
-                return new OkObjectResult(result);
-            }
-            catch (ServiceException e)
-            {
-                log.LogError($"Error:\n{e}");
-                return new BadRequestErrorMessageResult($"\"Can't perform request now - {e.Message}\"");
-            }
-        }
+				var result = new
+				{
+					meetingUrl = onlineMeeting.JoinWebUrl,
+					meetingId = onlineMeeting.Id,
+					meetingName = onlineMeeting.Subject
+				};
+
+				return new OkObjectResult(result);
+			}
+			catch (ServiceException e)
+			{
+				log.LogError($"Error:\n{e}");
+				return new BadRequestErrorMessageResult($"\"Can't perform request now - {e.Message}\"");
+			}
+		}
 
 
-    }
+	}
 }
