@@ -52,8 +52,16 @@ namespace TeamsMeetingBookingFunction
 			}
 			catch (ServiceException e)
 			{
-				log.LogError($"Error:\n{e}");
-				return new BadRequestErrorMessageResult($"\"Can't perform request now - {e.Message}\"");
+
+				log.LogError(e, "An error occurred invoking the Microsoft Graph API using StartDate = {startDate}, EndDate = {endDate}, Subject = {subject}",
+					requestModel.StartDateTime, requestModel.EndDateTime, requestModel.Subject);
+
+				if (e.StatusCode == System.Net.HttpStatusCode.BadRequest)
+				{
+					return new BadRequestErrorMessageResult(e.Message);
+				}
+
+				return new InternalServerErrorResult();
 			}
 		}
 
