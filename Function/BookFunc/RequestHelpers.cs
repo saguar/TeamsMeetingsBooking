@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Security;
 using System.Text;
 using Microsoft.Extensions.Configuration;
@@ -10,6 +11,7 @@ namespace TeamsMeetingBookFunc
 {
     internal static class RequestHelpers
     {
+        [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "securePassword is used by caller")]
         internal static T AddAuthenticationToRequest<T>(this T request, string username, string password) where T : IBaseRequest
         {
             var securePassword = new SecureString();

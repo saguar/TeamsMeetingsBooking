@@ -22,6 +22,8 @@ using System.Runtime.CompilerServices;
 using TeamsMeetingBookFunc.Models;
 using TeamsMeetingBookFunc.Helpers;
 using Microsoft.Graph.Extensions;
+using Microsoft.Azure.Services.AppAuthentication;
+using TeamsMeetingBookFunc.Authentication;
 
 namespace TeamsMeetingBookFunc.Services
 {
@@ -30,13 +32,39 @@ namespace TeamsMeetingBookFunc.Services
         private readonly IConfigurationRoot configuration;
         private readonly GraphServiceClient graphServiceClient;
 
+        bool usingServicePrincipal
+        {
+            get
+            {
+                return isClientCredentialAuth || isManagedIdentityAuth;
+            }
+        }
+
+        string accountEmail => configuration[ConfigConstants.UserEmailCfg];
+
+        private bool isManagedIdentityAuth => string.Equals(configuration.GetConnectionStringOrSetting(ConfigConstants.AuthenticationModeCfg), "managedIdentity", StringComparison.InvariantCultureIgnoreCase);
+
+        private bool isClientCredentialAuth => string.Equals(configuration.GetConnectionStringOrSetting(ConfigConstants.AuthenticationModeCfg), "clientSecret", StringComparison.InvariantCultureIgnoreCase);
+
+        private bool isUsernamePasswordAuth => string.Equals(configuration.GetConnectionStringOrSetting(ConfigConstants.AuthenticationModeCfg), "usernamePassword", StringComparison.InvariantCultureIgnoreCase);
+
+        string accountPassword => configuration.GetConnectionStringOrSetting(ConfigConstants.UserPasswordCfg);
+
+        string clientId => configuration.GetConnectionStringOrSetting(ConfigConstants.ClientIdCfg);
+
+        const string baseUrl = "https://graph.microsoft.com/";
+
         public BookingService(IConfigurationRoot configuration)
         {
             this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
 
-            var authProvider = GetAuthenticationProvider(configuration);
+            // GetAuthenticationProvider already relies on configuration
+            var authProvider = GetAuthenticationProvider(baseUrl);
 
-            graphServiceClient = new GraphServiceClient(authProvider);
+            // need to use beta endpoint if creating an online meeting with service principal
+            var versionedBaseUrl = baseUrl + (usingServicePrincipal ? "beta" : "v1.0");
+
+            graphServiceClient = new GraphServiceClient(versionedBaseUrl, authProvider);
         }
 
         internal async Task<Event> CreateCalendarEventAsync(RequestModel requestModel, string bodyText)
@@ -82,7 +110,7 @@ namespace TeamsMeetingBookFunc.Services
                 );
             }
 
-            foreach (var emailAddress in requestModel.OptionalAttendees)
+            foreach (var emailAddress in requestModel.OptionalAttendees ?? Enumerable.Empty<string>())
             {
                 attendeeList.Add(new Attendee
                 {
@@ -95,10 +123,33 @@ namespace TeamsMeetingBookFunc.Services
                 );
             }
 
-            return await graphServiceClient.Me.Events.Request()
-                .AddAuthenticationToRequest(configuration.GetConnectionStringOrSetting(ConfigConstants.UserEmailCfg), configuration.GetConnectionStringOrSetting(ConfigConstants.UserPasswordCfg))
-                .WithMaxRetry(5)
-                .AddAsync(newEvent).ConfigureAwait(false);
+            if(attendeeList.Count == 0)
+            {
+                throw new InvalidOperationException("Can't create event with no participants!");
+            }
+
+            if (!usingServicePrincipal)
+            {
+                return await graphServiceClient.Me.Events.Request()
+                    .AddAuthenticationToRequest(accountEmail, accountPassword)
+                    .WithMaxRetry(5)
+                    .AddAsync(newEvent)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                var organizerEmail = isManagedIdentityAuth ? requestModel.DoctorEmailAddress : accountEmail;
+
+                if (!String.IsNullOrWhiteSpace(organizerEmail))
+                {
+                    return await graphServiceClient.Users[organizerEmail].Events.Request()
+                        .WithMaxRetry(5)
+                        .AddAsync(newEvent)
+                        .ConfigureAwait(false);
+                }
+
+                return null;
+            }
         }
 
         internal async Task<OnlineMeeting> CreateTeamsMeetingAsync(RequestModel requestModel)
@@ -107,25 +158,72 @@ namespace TeamsMeetingBookFunc.Services
             {
                 StartDateTime = requestModel.StartDateTime,
                 EndDateTime = requestModel.EndDateTime,
-                Subject = requestModel.Subject
+                Subject = requestModel.Subject,
             };
 
-            var meeting = await graphServiceClient.Me.OnlineMeetings.Request()
-                .AddAuthenticationToRequest(configuration.GetConnectionStringOrSetting(ConfigConstants.UserEmailCfg), configuration.GetConnectionStringOrSetting(ConfigConstants.UserPasswordCfg))
-                .WithMaxRetry(5)
-                .AddAsync(onlineMeeting).ConfigureAwait(false);
+            OnlineMeeting meeting;
+
+            if (usingServicePrincipal)
+            {
+                onlineMeeting.Participants = new MeetingParticipants
+                {
+                    Organizer = new MeetingParticipantInfo
+                    {
+                        Identity = new IdentitySet
+                        {
+                            User = new Identity
+                            {
+                                Id = accountEmail
+                            }
+                        }
+                    }
+                };
+                meeting = await graphServiceClient.Communications.OnlineMeetings.Request()
+                    .WithMaxRetry(5)
+                    .AddAsync(onlineMeeting)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                meeting = await graphServiceClient.Me.OnlineMeetings.Request()
+                    .AddAuthenticationToRequest(accountEmail, accountPassword)
+                    .WithMaxRetry(5)
+                    .AddAsync(onlineMeeting)
+                    .ConfigureAwait(false);
+            }
+
             return meeting;
         }
 
-        private static UsernamePasswordProvider GetAuthenticationProvider(IConfigurationRoot config)
+        private IAuthenticationProvider GetAuthenticationProvider(string resourceUrl)
         {
-            Uri authority = new Uri($"https://login.microsoftonline.com/{config.GetConnectionStringOrSetting(ConfigConstants.TenantIdCfg)}");
+            Uri authority = new Uri($"https://login.microsoftonline.com/{configuration.GetConnectionStringOrSetting(ConfigConstants.TenantIdCfg)}");
 
-            var app = PublicClientApplicationBuilder.Create(config.GetConnectionStringOrSetting(ConfigConstants.ClientIdCfg))
-                .WithAuthority(authority)
-                .Build();
 
-            return new UsernamePasswordProvider(app);
+            if (isUsernamePasswordAuth)
+            {
+                var app = PublicClientApplicationBuilder.Create(clientId)
+                    .WithAuthority(authority)
+                    .Build();
+                return new UsernamePasswordProvider(app);
+            }
+
+            if (isClientCredentialAuth)
+            {
+                var app = ConfidentialClientApplicationBuilder.Create(clientId)
+                    .WithClientSecret(accountPassword)
+                    .WithAuthority(authority)
+                    .Build();
+                return new ClientCredentialProvider(app);
+            }
+
+            if (isManagedIdentityAuth)
+            {
+                // no Azure Token Service-based provider available in SDK yet
+                return new AzureTokenServiceAuthProvider(resourceUrl);
+            }
+
+            throw new InvalidOperationException("Unknown AuthenticationMode - use 'usernamePassword' or 'clientCredentials'");
         }
     }
 }
