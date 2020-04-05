@@ -22,26 +22,23 @@ namespace TeamsMeetingBookingFunction
 			RequestModel requestModel,
 			ILogger log)
 		{
-			//You can't specify only EndDateTime
-			if (requestModel.EndDateTime != null && requestModel.StartDateTime == null)
+			
+			if(!requestModel.StartDateTime.HasValue)
 			{
-				log.LogError("Only EndDateTime has been passed in input. Returning BadRequest");
-				return new BadRequestErrorMessageResult($"If you specify {nameof(requestModel.EndDateTime)}, you must specify {nameof(requestModel.StartDateTime)} as well");
+				log.LogError($"{nameof(RequestModel.StartDateTime)} is null. Invalid format or parameter not passed. Returning BadRequest");
+				return new BadRequestErrorMessageResult($"{nameof(RequestModel.StartDateTime)} not present or invalid. Please use the format YYYY-mm-DDTHH:mm:ss");
 			}
 
-			requestModel.StartDateTime ??= DateTime.Now;
-			requestModel.EndDateTime ??= requestModel.StartDateTime.Value.AddHours(1);
-			requestModel.Subject ??= BookingService.Current.Configuration.GetConnectionStringOrSetting(ConfigConstants.DefaultMeetingNameCfg);
+			requestModel.MeetingDurationMins = requestModel.MeetingDurationMins == 0 ? 
+				BookingService.Current.Configuration.GetValue<int>(ConfigConstants.DefaultMeetingDurationMinsCfg) : 
+				requestModel.MeetingDurationMins;
 
-			if (requestModel.EndDateTime.Value < requestModel.StartDateTime.Value)
-			{
-				log.LogError($"{nameof(requestModel.EndDateTime)} must be after {nameof(requestModel.StartDateTime)}. Returning BadRequest");
-				return new BadRequestErrorMessageResult($"{nameof(requestModel.EndDateTime)} must be after {nameof(requestModel.StartDateTime)}");
-			}
+			requestModel.Subject ??= BookingService.Current.Configuration.GetValue<string>(ConfigConstants.DefaultMeetingNameCfg);
+			
 			try
 			{
-				log.LogInformation("Creating a meeting with following info: StartDateTime = {startDateTime}, EndDateTime = {endDateTime}, Subject = {subject}",
-					requestModel.StartDateTime, requestModel.EndDateTime, requestModel.Subject);
+				log.LogInformation("Creating a meeting with following info: StartDateTime = {startDateTime}, DurationHours = {durationHours}, Subject = {subject}",
+					requestModel.StartDateTime, requestModel.MeetingDurationMins, requestModel.Subject);
 				
 				var onlineMeeting = await BookingService.Current.CreateTeamsMeetingAsync(requestModel).ConfigureAwait(false);
 				

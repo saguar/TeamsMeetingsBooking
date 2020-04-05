@@ -6,7 +6,7 @@ namespace TeamsMeetingBookFunc.Models
     public class RequestModel
     {
         public DateTime? StartDateTime;
-        public DateTime? EndDateTime;
+        public int MeetingDurationMins;
         public string Subject;
         public string PatientEmailAddress;
         public string DoctorEmailAddress;
