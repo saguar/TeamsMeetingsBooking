@@ -39,7 +39,7 @@ namespace TeamsMeetingBookingFunction
 			
 			try
 			{
-				log.LogInformation("Creating a meeting with following info: StartDateTime = {startDateTime}, DurationHours = {durationHours}, Subject = {subject}",
+				log.LogInformation("Creating a meeting with following info: StartDateTime = {startDateTime}, DurationHours = {durationMins}, Subject = {subject}",
 					requestModel.StartDateTime, requestModel.MeetingDurationMins, requestModel.Subject);
 				
 				var onlineMeeting = await BookingService.Current.CreateTeamsMeetingAsync(requestModel).ConfigureAwait(false);
