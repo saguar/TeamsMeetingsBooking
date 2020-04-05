@@ -23,15 +23,17 @@ namespace TeamsMeetingBookingFunction
 			ILogger log)
 		{
 			
+			//StartDateTime is mandatory. Return BadRequest if not passed or if input format is invalid
 			if(!requestModel.StartDateTime.HasValue)
 			{
 				log.LogError($"{nameof(RequestModel.StartDateTime)} is null. Invalid format or parameter not passed. Returning BadRequest");
 				return new BadRequestErrorMessageResult($"{nameof(RequestModel.StartDateTime)} not present or invalid. Please use the format YYYY-mm-DDTHH:mm:ss");
 			}
 
-			requestModel.MeetingDurationMins = requestModel.MeetingDurationMins == 0 ? 
-				BookingService.Current.Configuration.GetValue<int>(ConfigConstants.DefaultMeetingDurationMinsCfg) : 
-				requestModel.MeetingDurationMins;
+			if(requestModel.MeetingDurationMins == 0)
+			{
+				requestModel.MeetingDurationMins = BookingService.Current.Configuration.GetValue<int>(ConfigConstants.DefaultMeetingDurationMinsCfg);
+			}
 
 			requestModel.Subject ??= BookingService.Current.Configuration.GetValue<string>(ConfigConstants.DefaultMeetingNameCfg);
 			
