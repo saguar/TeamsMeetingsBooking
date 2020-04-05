@@ -39,7 +39,7 @@ namespace TeamsMeetingBookingFunction
 			
 			try
 			{
-				log.LogInformation("Creating a meeting with following info: StartDateTime = {startDateTime}, DurationHours = {durationMins}, Subject = {subject}",
+				log.LogInformation("Creating a meeting with following info: StartDateTime = {startDateTime}, DurationMins = {durationMins}, Subject = {subject}",
 					requestModel.StartDateTime, requestModel.MeetingDurationMins, requestModel.Subject);
 				
 				var onlineMeeting = await BookingService.Current.CreateTeamsMeetingAsync(requestModel).ConfigureAwait(false);
@@ -58,8 +58,8 @@ namespace TeamsMeetingBookingFunction
 			catch (ServiceException e)
 			{
 
-				log.LogError(e, "An error occurred invoking the Microsoft Graph API using StartDate = {startDate}, EndDate = {endDate}, Subject = {subject}",
-					requestModel.StartDateTime, requestModel.StartDateTime.Value.AddMinutes(requestModel.MeetingDurationMins), requestModel.Subject);
+				log.LogError(e, "An error occurred invoking the Microsoft Graph API using StartDateTime = {startDateTime}, DurationMins = {durationMins}, Subject = {subject}",
+					requestModel.StartDateTime, requestModel.MeetingDurationMins, requestModel.Subject);
 
 				if (e.StatusCode == System.Net.HttpStatusCode.BadRequest)
 				{
