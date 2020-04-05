@@ -9,5 +9,6 @@
         internal const string UserPasswordCfg = "UserPassword";
         internal const string UserEmailCfg = "UserEmail";
         internal const string DefaultMeetingNameCfg = "DefaultMeetingName";
+        internal const string DefaultMeetingDurationMinsCfg = "DefaultMeetingDurationMins";
     }
 }

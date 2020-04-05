@@ -56,7 +56,7 @@ namespace TeamsMeetingBookFunc.Services
             var onlineMeeting = new OnlineMeeting
             {
                 StartDateTime = requestModel.StartDateTime,
-                EndDateTime = requestModel.EndDateTime,
+                EndDateTime = requestModel.StartDateTime.Value.AddMinutes(requestModel.MeetingDurationMins),
                 Subject = requestModel.Subject
             };
 
