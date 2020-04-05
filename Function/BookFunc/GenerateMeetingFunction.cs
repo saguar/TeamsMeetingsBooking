@@ -59,7 +59,7 @@ namespace TeamsMeetingBookingFunction
 			{
 
 				log.LogError(e, "An error occurred invoking the Microsoft Graph API using StartDate = {startDate}, EndDate = {endDate}, Subject = {subject}",
-					requestModel.StartDateTime, requestModel.EndDateTime, requestModel.Subject);
+					requestModel.StartDateTime, requestModel.StartDateTime.Value.AddMinutes(requestModel.MeetingDurationMins), requestModel.Subject);
 
 				if (e.StatusCode == System.Net.HttpStatusCode.BadRequest)
 				{
