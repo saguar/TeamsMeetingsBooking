@@ -14,10 +14,18 @@ using System.Web.Http;
 
 namespace TeamsMeetingBookingFunction
 {
-	public static class GenerateMeetingFunction
+	public class GenerateMeetingFunction
 	{
+		private readonly IConfiguration config;
+		private readonly IBookingService bookingSvc;
+
+		public GenerateMeetingFunction(IConfiguration _config, IBookingService _bookingSvc)
+		{
+			config = _config ?? throw new ArgumentNullException(nameof(_config));
+			bookingSvc = _bookingSvc ?? throw new ArgumentNullException(nameof(_bookingSvc));
+		}
 		[FunctionName("GenerateMeetingFunction")]
-		public static async Task<IActionResult> Run(
+		public async Task<IActionResult> Run(
 			[HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]
 			RequestModel requestModel,
 			ILogger log)
@@ -32,17 +40,17 @@ namespace TeamsMeetingBookingFunction
 
 			if(requestModel.MeetingDurationMins == 0)
 			{
-				requestModel.MeetingDurationMins = BookingService.Current.Configuration.GetValue<int>(ConfigConstants.DefaultMeetingDurationMinsCfg);
+				requestModel.MeetingDurationMins = config.GetValue<int>(ConfigConstants.DefaultMeetingDurationMinsCfg);
 			}
 
-			requestModel.Subject ??= BookingService.Current.Configuration.GetValue<string>(ConfigConstants.DefaultMeetingNameCfg);
+			requestModel.Subject ??= config.GetValue<string>(ConfigConstants.DefaultMeetingNameCfg);
 			
 			try
 			{
 				log.LogInformation("Creating a meeting with following info: StartDateTime = {startDateTime}, DurationMins = {durationMins}, Subject = {subject}",
 					requestModel.StartDateTime, requestModel.MeetingDurationMins, requestModel.Subject);
 				
-				var onlineMeeting = await BookingService.Current.CreateTeamsMeetingAsync(requestModel).ConfigureAwait(false);
+				var onlineMeeting = await bookingSvc.CreateTeamsMeetingAsync(requestModel).ConfigureAwait(false);
 				
 				log.LogInformation("Meeting created. MeetingUrl = {meetingUrl}, MeetingId = {meetingId}", onlineMeeting.JoinWebUrl, onlineMeeting.Id);
 
