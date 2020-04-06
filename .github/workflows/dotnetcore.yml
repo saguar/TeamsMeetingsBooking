@@ -18,8 +18,11 @@ jobs:
       with:
         dotnet-version: 3.1.101
     - name: Install dependencies
-      run: dotnet restore
+      run: dotnet restore BookFunc.sln
+      working-directory: ./Function/BookFunc
     - name: Build
-      run: dotnet build --configuration Release --no-restore
+      run: dotnet build -c Release --no-restore BookFunc.sln
+      working-directory: ./Function/BookFunc
     - name: Test
-      run: dotnet test --no-restore --verbosity normal
+      run: dotnet test --no-restore --verbosity normal BookFunc.sln
+      working-directory: ./Function/BookFunc
