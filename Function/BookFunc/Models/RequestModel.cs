@@ -14,5 +14,6 @@ namespace TeamsMeetingBookFunc.Models
         public string PatientEmailAddress;
         public string DoctorEmailAddress;
         public List<string> OptionalAttendees;
+        public bool? CreateEvent;
     }
 }

@@ -77,13 +77,18 @@ namespace TeamsMeetingBookingFunction
             {
 
                 var onlineMeeting = await bookingSvc.CreateTeamsMeetingAsync(requestModel).ConfigureAwait(false);
-
-                var newEvent = await bookingSvc.CreateCalendarEventAsync(requestModel, onlineMeeting.JoinWebUrl).ConfigureAwait(false);
+                var eventId = "No event was requested";
+                
+                if (requestModel.CreateEvent ?? false)
+                {
+                    var newEvent = await bookingSvc.CreateCalendarEventAsync(requestModel, onlineMeeting.JoinWebUrl).ConfigureAwait(false);
+                    eventId = newEvent?.Id ?? "No event could be created - doctor's account was not specified";
+                }
 
                 var result = new
                 {
                     meetingUrl = onlineMeeting.JoinWebUrl,
-                    eventId = newEvent?.Id ?? "No event could be created - doctor's account was not specified",
+                    eventId = eventId,
                     meetingId = onlineMeeting.Id
                 };
 
