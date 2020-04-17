@@ -14,17 +14,17 @@ namespace TeamsMeetingBookFunc.Helpers
 
         internal static bool IsManagedIdentityAuth(this IConfiguration configuration)
         {
-            return string.Equals(configuration.GetConnectionStringOrSetting(ConfigConstants.AuthenticationModeCfg), "managedIdentity", StringComparison.InvariantCultureIgnoreCase);
+            return string.Equals(configuration.GetConnectionStringOrSetting(ConfigConstants.AuthenticationModeCfg), ConfigConstants.ManagedIdentity, StringComparison.InvariantCultureIgnoreCase);
         }
 
         internal static bool IsClientCredentialAuth(this IConfiguration configuration)
         {
-            return string.Equals(configuration.GetConnectionStringOrSetting(ConfigConstants.AuthenticationModeCfg), "clientSecret", StringComparison.InvariantCultureIgnoreCase);
+            return string.Equals(configuration.GetConnectionStringOrSetting(ConfigConstants.AuthenticationModeCfg), ConfigConstants.ClientSecret, StringComparison.InvariantCultureIgnoreCase);
         }
 
         internal static bool IsUsernamePasswordAuth(this IConfiguration configuration)
         {
-            return string.Equals(configuration.GetConnectionStringOrSetting(ConfigConstants.AuthenticationModeCfg), "usernamePassword", StringComparison.InvariantCultureIgnoreCase);
+            return string.Equals(configuration.GetConnectionStringOrSetting(ConfigConstants.AuthenticationModeCfg), ConfigConstants.UsernamePassword, StringComparison.InvariantCultureIgnoreCase);
         }
 
         internal static string GetAccountEmail(this IConfiguration configuration)

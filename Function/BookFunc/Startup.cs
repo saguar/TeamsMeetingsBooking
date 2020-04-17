@@ -58,7 +58,7 @@ namespace TeamsMeetingBookFunc
 
             if(authenticationProvider == null)
             {
-                throw new InvalidOperationException("Unknown AuthenticationMode - use 'usernamePassword', 'clientCredentials' or 'managedIdentity'");
+                throw new InvalidOperationException($"Unknown AuthenticationMode - use '{ConfigConstants.UsernamePassword}', '{ConfigConstants.ClientSecret}' or '{ConfigConstants.ManagedIdentity}'");
             }
 
             builder.Services.AddSingleton(authenticationProvider);

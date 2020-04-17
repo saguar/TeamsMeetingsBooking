@@ -14,5 +14,8 @@ namespace TeamsMeetingBookFunc.Helpers
         internal const string DefaultMeetingNameCfg = "DefaultMeetingName";
         internal const string DefaultMeetingDurationMinsCfg = "DefaultMeetingDurationMins";
         internal const string AuthenticationModeCfg = "AuthenticationMode";
+        internal const string ManagedIdentity = "managedIdentity";
+        internal const string ClientSecret = "clientSecret";
+        internal const string UsernamePassword = "usernamePassword";
     }
 }
