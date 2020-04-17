@@ -1,5 +1,4 @@
-﻿using Microsoft.Build.Utilities;
-using Microsoft.Graph;
+﻿using Microsoft.Graph;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -8,8 +7,9 @@ using TeamsMeetingBookFunc.Models;
 
 namespace TeamsMeetingBookFunc.Services
 {
-	public interface IBookingService
-	{
-		Task<OnlineMeeting> CreateTeamsMeetingAsync(RequestModel model);
-	}
+    public interface IBookingService
+    {
+        Task<Event> CreateCalendarEventAsync(RequestModel requestModel, string bodyText);
+        Task<OnlineMeeting> CreateTeamsMeetingAsync(RequestModel requestModel);
+    }
 }
