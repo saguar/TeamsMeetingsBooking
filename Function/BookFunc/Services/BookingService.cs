@@ -27,47 +27,18 @@ using TeamsMeetingBookFunc.Authentication;
 
 namespace TeamsMeetingBookFunc.Services
 {
-    class BookingService
+    class BookingService : IBookingService
     {
-        private readonly IConfigurationRoot configuration;
-        private readonly GraphServiceClient graphServiceClient;
+        private readonly IConfiguration configuration;
+        private readonly IGraphServiceClient graphServiceClient;
 
-        bool usingServicePrincipal
-        {
-            get
-            {
-                return isClientCredentialAuth || isManagedIdentityAuth;
-            }
-        }
-
-        string accountEmail => configuration[ConfigConstants.UserEmailCfg];
-
-        private bool isManagedIdentityAuth => string.Equals(configuration.GetConnectionStringOrSetting(ConfigConstants.AuthenticationModeCfg), "managedIdentity", StringComparison.InvariantCultureIgnoreCase);
-
-        private bool isClientCredentialAuth => string.Equals(configuration.GetConnectionStringOrSetting(ConfigConstants.AuthenticationModeCfg), "clientSecret", StringComparison.InvariantCultureIgnoreCase);
-
-        private bool isUsernamePasswordAuth => string.Equals(configuration.GetConnectionStringOrSetting(ConfigConstants.AuthenticationModeCfg), "usernamePassword", StringComparison.InvariantCultureIgnoreCase);
-
-        string accountPassword => configuration.GetConnectionStringOrSetting(ConfigConstants.UserPasswordCfg);
-
-        string clientId => configuration.GetConnectionStringOrSetting(ConfigConstants.ClientIdCfg);
-
-        const string baseUrl = "https://graph.microsoft.com/";
-
-        public BookingService(IConfigurationRoot configuration)
+        public BookingService(IConfiguration configuration, IGraphServiceClient graphServiceClient)
         {
             this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-
-            // GetAuthenticationProvider already relies on configuration
-            var authProvider = GetAuthenticationProvider(baseUrl);
-
-            // need to use beta endpoint if creating an online meeting with service principal
-            var versionedBaseUrl = baseUrl + (usingServicePrincipal ? "beta" : "v1.0");
-
-            graphServiceClient = new GraphServiceClient(versionedBaseUrl, authProvider);
+            this.graphServiceClient = graphServiceClient ?? throw new ArgumentNullException(nameof(graphServiceClient));
         }
 
-        internal async Task<Event> CreateCalendarEventAsync(RequestModel requestModel, string bodyText)
+        public async Task<Event> CreateCalendarEventAsync(RequestModel requestModel, string bodyText)
         {
             var attendeeList = new List<Attendee>();
 
@@ -81,7 +52,7 @@ namespace TeamsMeetingBookFunc.Services
                 },
                 Attendees = attendeeList,
                 Start = requestModel.StartDateTime.Value.ToDateTimeTimeZone(),
-                End = requestModel.EndDateTime.Value.ToDateTimeTimeZone(),
+                End = requestModel.StartDateTime.Value.AddMinutes(requestModel.MeetingDurationMins).ToDateTimeTimeZone(),
             };
 
             if (!String.IsNullOrWhiteSpace(requestModel.DoctorEmailAddress))
@@ -128,17 +99,17 @@ namespace TeamsMeetingBookFunc.Services
                 throw new InvalidOperationException("Can't create event with no participants!");
             }
 
-            if (!usingServicePrincipal)
+            if (!configuration.IsUsingServicePrincipal())
             {
                 return await graphServiceClient.Me.Events.Request()
-                    .AddAuthenticationToRequest(accountEmail, accountPassword)
+                    .AddAuthenticationToRequest(configuration.GetAccountEmail(), configuration.GetAccountPassword())
                     .WithMaxRetry(5)
                     .AddAsync(newEvent)
                     .ConfigureAwait(false);
             }
             else
             {
-                var organizerEmail = isManagedIdentityAuth ? requestModel.DoctorEmailAddress : accountEmail;
+                var organizerEmail = configuration.IsManagedIdentityAuth() ? requestModel.DoctorEmailAddress : configuration.GetAccountEmail();
 
                 if (!String.IsNullOrWhiteSpace(organizerEmail))
                 {
@@ -152,18 +123,18 @@ namespace TeamsMeetingBookFunc.Services
             }
         }
 
-        internal async Task<OnlineMeeting> CreateTeamsMeetingAsync(RequestModel requestModel)
+        public async Task<OnlineMeeting> CreateTeamsMeetingAsync(RequestModel requestModel)
         {
             var onlineMeeting = new OnlineMeeting
             {
                 StartDateTime = requestModel.StartDateTime,
-                EndDateTime = requestModel.EndDateTime,
+                EndDateTime = requestModel.StartDateTime.Value.AddMinutes(requestModel.MeetingDurationMins),
                 Subject = requestModel.Subject,
             };
 
             OnlineMeeting meeting;
 
-            if (usingServicePrincipal)
+            if (configuration.IsUsingServicePrincipal())
             {
                 onlineMeeting.Participants = new MeetingParticipants
                 {
@@ -173,7 +144,7 @@ namespace TeamsMeetingBookFunc.Services
                         {
                             User = new Identity
                             {
-                                Id = accountEmail
+                                Id = configuration.GetAccountEmail()
                             }
                         }
                     }
@@ -186,44 +157,13 @@ namespace TeamsMeetingBookFunc.Services
             else
             {
                 meeting = await graphServiceClient.Me.OnlineMeetings.Request()
-                    .AddAuthenticationToRequest(accountEmail, accountPassword)
+                    .AddAuthenticationToRequest(configuration.GetAccountEmail(), configuration.GetAccountPassword())
                     .WithMaxRetry(5)
                     .AddAsync(onlineMeeting)
                     .ConfigureAwait(false);
             }
 
             return meeting;
-        }
-
-        private IAuthenticationProvider GetAuthenticationProvider(string resourceUrl)
-        {
-            Uri authority = new Uri($"https://login.microsoftonline.com/{configuration.GetConnectionStringOrSetting(ConfigConstants.TenantIdCfg)}");
-
-
-            if (isUsernamePasswordAuth)
-            {
-                var app = PublicClientApplicationBuilder.Create(clientId)
-                    .WithAuthority(authority)
-                    .Build();
-                return new UsernamePasswordProvider(app);
-            }
-
-            if (isClientCredentialAuth)
-            {
-                var app = ConfidentialClientApplicationBuilder.Create(clientId)
-                    .WithClientSecret(accountPassword)
-                    .WithAuthority(authority)
-                    .Build();
-                return new ClientCredentialProvider(app);
-            }
-
-            if (isManagedIdentityAuth)
-            {
-                // no Azure Token Service-based provider available in SDK yet
-                return new AzureTokenServiceAuthProvider(resourceUrl);
-            }
-
-            throw new InvalidOperationException("Unknown AuthenticationMode - use 'usernamePassword' or 'clientCredentials'");
         }
     }
 }

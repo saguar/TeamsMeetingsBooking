@@ -15,17 +15,25 @@ using Microsoft.Graph;
 using TeamsMeetingBookFunc.Models;
 using TeamsMeetingBookFunc.Services;
 using TeamsMeetingBookFunc.Helpers;
+using System.Web.Http;
 
 namespace TeamsMeetingBookingFunction
 {
-    public static class GenerateMeetingFunction
+    public class GenerateMeetingFunction
     {
+        private readonly IConfiguration config;
+        private readonly IBookingService bookingSvc;
+
+        public GenerateMeetingFunction(IConfiguration config, IBookingService bookingSvc)
+        {
+            this.config = config ?? throw new ArgumentNullException(nameof(config));
+            this.bookingSvc = bookingSvc ?? throw new ArgumentNullException(nameof(bookingSvc));
+        }
+
         [FunctionName("GenerateMeetingFunction")]
-        public static async Task<IActionResult> Run(
+        public async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]
             RequestModel requestModel,
-            // HttpRequest is still passed if required - but currently not used
-            // HttpRequest httpRequest,
             ILogger log, ExecutionContext context)
         {
             // parameter check
@@ -33,7 +41,7 @@ namespace TeamsMeetingBookingFunction
             {
                 if (requestModel is null)
                 {
-                    throw new ArgumentNullException("Please check if POST body contained valid JSON request.");
+                    throw new ArgumentNullException(nameof(requestModel), "Please check if POST body contains a valid JSON request.");
                 }
 
                 if (log is null)
@@ -43,7 +51,7 @@ namespace TeamsMeetingBookingFunction
 
                 if (context is null)
                 {
-                    throw new ArgumentNullException("Azure Function runtime error - no execution context provided.");
+                    throw new ArgumentNullException(nameof(context), "Azure Function runtime error - no execution context provided.");
                 }
             }
             catch (ArgumentNullException e)
@@ -51,20 +59,26 @@ namespace TeamsMeetingBookingFunction
                 return new ObjectResult($"\"{e.Message}\"") { StatusCode = 500 };
             }
 
-            var config = BuildConfig(context);
+            //StartDateTime is mandatory. Return BadRequest if not passed or if input format is invalid
+            if (!requestModel.StartDateTime.HasValue)
+            {
+                log.LogError($"{nameof(RequestModel.StartDateTime)} is null. Invalid format or parameter not passed. Returning BadRequest");
+                return new BadRequestErrorMessageResult($"{nameof(RequestModel.StartDateTime)} not present or invalid. Please use the format YYYY-mm-DDTHH:mm:ss");
+            }
 
-            // use defaults if required
-            requestModel.StartDateTime ??= DateTime.Now;
-            requestModel.EndDateTime ??= DateTime.Now.AddHours(1);
+            if (requestModel.MeetingDurationMins == 0)
+            {
+                requestModel.MeetingDurationMins = config.GetValue<int>(ConfigConstants.DefaultMeetingDurationMinsCfg);
+            }
+
             requestModel.Subject ??= config.GetConnectionStringOrSetting(ConfigConstants.DefaultMeetingNameCfg);
 
             try
             {
-                var service = new BookingService(config);
 
-                var onlineMeeting = await service.CreateTeamsMeetingAsync(requestModel).ConfigureAwait(false);
+                var onlineMeeting = await bookingSvc.CreateTeamsMeetingAsync(requestModel).ConfigureAwait(false);
 
-                var newEvent = await service.CreateCalendarEventAsync(requestModel, onlineMeeting.JoinWebUrl).ConfigureAwait(false);
+                var newEvent = await bookingSvc.CreateCalendarEventAsync(requestModel, onlineMeeting.JoinWebUrl).ConfigureAwait(false);
 
                 var result = new
                 {
@@ -77,7 +91,8 @@ namespace TeamsMeetingBookingFunction
             }
             catch (ServiceException e)
             {
-                return LogAndReturnErrorResult(log, "Can't perform request now", e);
+                return LogAndReturnErrorResult(log, $"An error occurred invoking the Microsoft Graph API using StartDateTime = {requestModel.StartDateTime}" +
+                    $", DurationMins = {requestModel.MeetingDurationMins}, Subject = {requestModel.Subject}", e);
             }
             catch (InvalidOperationException e)
             {
@@ -87,18 +102,13 @@ namespace TeamsMeetingBookingFunction
 
         private static IActionResult LogAndReturnErrorResult(ILogger log, string message, Exception e)
         {
+            if (e is ServiceException se && se.StatusCode == System.Net.HttpStatusCode.BadRequest)
+            {
+                return new BadRequestErrorMessageResult(e.Message);
+            }
+
             log?.LogError($"{message}:\n{e}");
             return new ObjectResult($"\"{message}: - {e.Message}\"") { StatusCode = 500 };
-        }
-
-        private static IConfigurationRoot BuildConfig(ExecutionContext context)
-        {
-            var config = new ConfigurationBuilder()
-                .SetBasePath(context.FunctionAppDirectory)
-                .AddJsonFile("local.settings.json", optional: true, reloadOnChange: true)
-                .AddEnvironmentVariables()
-                .Build();
-            return config;
         }
     }
 }
